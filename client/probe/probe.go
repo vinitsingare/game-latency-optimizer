@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func MeasureRTT(addr string) (time.Duration, error) {
+func MeasureRTT(addr string, timeout time.Duration) (time.Duration, error) {
 	raddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return 0, err
@@ -16,6 +16,9 @@ func MeasureRTT(addr string) (time.Duration, error) {
 		return 0, err
 	}
 	defer conn.Close()
+
+	// ⬇️ timeout protection
+	conn.SetDeadline(time.Now().Add(timeout))
 
 	start := time.Now()
 	_, err = conn.Write([]byte("ping"))

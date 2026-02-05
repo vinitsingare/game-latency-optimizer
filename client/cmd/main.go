@@ -14,35 +14,35 @@ func main() {
 	relays := config.DefaultRelays()
 
 	stats := make(map[string]*metrics.RTTStats)
-	for _, r := range relays {
+	for i, r := range relays {
 		stats[r.Name] = metrics.NewRTTStats(5)
+		fmt.Printf("Initialized RTTStats for %s at index %d\n", r.Name, i)
 	}
 
 	for {
-		var scores []routing.RouteScore
+		results := probe.ProbeAll(relays, 500*time.Millisecond)
 
-		for _, r := range relays {
-			rtt, err := probe.MeasureRTT(r.Addr)
-			if err != nil {
-				fmt.Println("Error probing", r.Name, err)
+		scores := make([]routing.RouteScore, 0, len(relays))
+
+		for i := 0; i < len(relays); i++ {
+			res := <-results
+
+			if res.Err != nil {
+				fmt.Println("Probe failed for", res.RelayName, res.Err)
 				continue
 			}
 
-			stats[r.Name].Add(rtt)
-			avg := stats[r.Name].Avg()
+			stats[res.RelayName].Add(res.RTT)
+			avg := stats[res.RelayName].Avg()
 
 			scores = append(scores, routing.RouteScore{
-				Name: r.Name,
+				Name: res.RelayName,
 				RTT:  avg,
 			})
 
-			fmt.Println(r.Name, "RTT:", rtt, "Avg:", avg)
+			fmt.Println(res.RelayName, "RTT:", res.RTT, "Avg:", avg)
+			time.Sleep(1 * time.Second)
 		}
-
-		best := routing.ChooseBest(scores)
-		fmt.Println("👉 Best Route:", best.Name, best.RTT)
-		fmt.Println("--------------------------------")
-
-		time.Sleep(1 * time.Second)
 	}
+
 }
