@@ -4,45 +4,30 @@ import (
 	"fmt"
 	"time"
 
-	"game_latency_optimizer/client/config"
-	"game_latency_optimizer/client/metrics"
-	"game_latency_optimizer/client/probe"
-	"game_latency_optimizer/client/routing"
+	"game_latency_optimizer/client/rtt"
 )
 
 func main() {
-	relays := config.DefaultRelays()
-
-	stats := make(map[string]*metrics.RTTStats)
-	for i, r := range relays {
-		stats[r.Name] = metrics.NewRTTStats(5)
-		fmt.Printf("Initialized RTTStats for %s at index %d\n", r.Name, i)
-	}
+	directAddr := "127.0.0.1:10000" // echo server
+	overlayAddr := "127.0.0.1:9000" // forwarder
 
 	for {
-		results := probe.ProbeAll(relays, 500*time.Millisecond)
-
-		scores := make([]routing.RouteScore, 0, len(relays))
-
-		for i := 0; i < len(relays); i++ {
-			res := <-results
-
-			if res.Err != nil {
-				fmt.Println("Probe failed for", res.RelayName, res.Err)
-				continue
-			}
-
-			stats[res.RelayName].Add(res.RTT)
-			avg := stats[res.RelayName].Avg()
-
-			scores = append(scores, routing.RouteScore{
-				Name: res.RelayName,
-				RTT:  avg,
-			})
-
-			fmt.Println(res.RelayName, "RTT:", res.RTT, "Avg:", avg)
-			time.Sleep(1 * time.Second)
+		directRTT, err := rtt.Measure(directAddr)
+		if err != nil {
+			fmt.Println("Direct error:", err)
+			continue
 		}
-	}
 
+		overlayRTT, err := rtt.Measure(overlayAddr)
+		if err != nil {
+			fmt.Println("Overlay error:", err)
+			continue
+		}
+
+		fmt.Println("Direct RTT :", directRTT)
+		fmt.Println("Overlay RTT:", overlayRTT)
+		fmt.Println("--------------------------------")
+
+		time.Sleep(1 * time.Second)
+	}
 }
