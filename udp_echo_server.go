@@ -8,7 +8,7 @@ import (
 func main() {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
-		Port: 10000, // change this for second server
+		Port: 9999, // change this for second server
 	}
 
 	conn, err := net.ListenUDP("udp", &addr)

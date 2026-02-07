@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	listenAddr := ":9999" // VPS listens here
+	listenAddr := "103.102.46.130:9999" // VPS listens here
 
 	conn, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
