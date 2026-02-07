@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 	"sync"
+
+	"game_latency_optimizer/client/health"
 )
 
 type Forwarder struct {
@@ -13,12 +15,14 @@ type Forwarder struct {
 	relayConn *net.UDPConn
 	clientMap map[string]*net.UDPAddr
 	mu        sync.Mutex
+	health    *health.State
 }
 
-func New(localAddr, relayAddr string) *Forwarder {
+func New(localAddr, relayAddr string, h *health.State) *Forwarder {
 	return &Forwarder{
 		localAddr: localAddr,
 		relayAddr: relayAddr,
+		health:    h,
 		clientMap: make(map[string]*net.UDPAddr),
 	}
 }
@@ -55,22 +59,23 @@ func (f *Forwarder) Start() error {
 
 func (f *Forwarder) readFromClients() {
 	buf := make([]byte, 4096)
-
 	for {
 		n, clientAddr, err := f.conn.ReadFromUDP(buf)
 		if err != nil {
 			continue
 		}
 
-		// remember client
+		// 🔴 CONTROL → DATA PLANE GATE
+		if !f.health.IsHealthy() {
+			// drop packet when relay unhealthy
+			continue
+		}
+
 		f.mu.Lock()
 		f.clientMap[clientAddr.String()] = clientAddr
 		f.mu.Unlock()
 
-		// forward to relay
-		f.relayConn.Write(buf[:n])
-		log.Println("Forwarder: packet from client", clientAddr)
-
+		_, _ = f.relayConn.Write(buf[:n])
 	}
 }
 

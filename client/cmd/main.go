@@ -4,30 +4,34 @@ import (
 	"fmt"
 	"time"
 
+	"game_latency_optimizer/client/forwarder"
+	"game_latency_optimizer/client/health"
 	"game_latency_optimizer/client/rtt"
 )
 
 func main() {
-	directAddr := "127.0.0.1:10000" // echo server
-	overlayAddr := "127.0.0.1:9000" // forwarder
+	relayAddr := "127.0.0.1:9999" // VPS relay address
 
+	state := health.NewState()
+
+	// Start forwarder
+	f := forwarder.New(":7000", relayAddr, state)
+	go func() {
+		if err := f.Start(); err != nil {
+			panic(err)
+		}
+	}()
+
+	// Health loop (control plane)
 	for {
-		directRTT, err := rtt.Measure(directAddr)
+		_, err := rtt.Measure(relayAddr)
 		if err != nil {
-			fmt.Println("Direct error:", err)
-			continue
+			fmt.Println("Relay UNHEALTHY")
+			state.SetUnhealthy()
+		} else {
+			fmt.Println("Relay HEALTHY")
+			state.SetHealthy()
 		}
-
-		overlayRTT, err := rtt.Measure(overlayAddr)
-		if err != nil {
-			fmt.Println("Overlay error:", err)
-			continue
-		}
-
-		fmt.Println("Direct RTT :", directRTT)
-		fmt.Println("Overlay RTT:", overlayRTT)
-		fmt.Println("--------------------------------")
-
 		time.Sleep(1 * time.Second)
 	}
 }

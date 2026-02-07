@@ -12,7 +12,11 @@ func Measure(addr string) (time.Duration, error) {
 	}
 	defer conn.Close()
 
+	// 🔴 THIS LINE IS CRITICAL
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+
 	start := time.Now()
+
 	_, err = conn.Write([]byte("ping"))
 	if err != nil {
 		return 0, err
